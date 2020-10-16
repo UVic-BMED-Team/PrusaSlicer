@@ -1402,6 +1402,7 @@ void TabPrint::build()
         optgroup->append_single_option_line("extra_perimeters");
         optgroup->append_single_option_line("ensure_vertical_shell_thickness");
         optgroup->append_single_option_line("avoid_crossing_perimeters");
+        optgroup->append_single_option_line("avoid_crossing_perimeters_max_detour");
         optgroup->append_single_option_line("thin_walls");
         optgroup->append_single_option_line("overhangs");
 
