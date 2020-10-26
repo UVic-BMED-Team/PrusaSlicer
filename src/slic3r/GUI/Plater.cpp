@@ -4948,7 +4948,7 @@ void Plater::export_gcode(bool prefer_removable)
     if (p->model.objects.empty())
         return;
 
-    if (p->process_completed_with_error)//here
+    if (p->process_completed_with_error)
         return;
 
     // If possible, remove accents from accented latin characters.
@@ -4993,6 +4993,7 @@ void Plater::export_gcode(bool prefer_removable)
 
     if (! output_path.empty()) {
 		bool path_on_removable_media = removable_drive_manager.set_and_verify_last_save_path(output_path.string());
+        p->notification_manager->new_export_began(path_on_removable_media);
         p->writing_to_removable_device = path_on_removable_media;
         p->export_gcode(output_path, path_on_removable_media, PrintHostJob());
         // Storing a path to AppConfig either as path to removable media or a path to internal media.

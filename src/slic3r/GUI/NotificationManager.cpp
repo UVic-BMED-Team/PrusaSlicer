@@ -931,5 +931,20 @@ bool NotificationManager::has_slicing_error_notification()
     });
 }
 
+void NotificationManager::new_export_began(bool on_removable)
+{
+	for (std::unique_ptr<PopNotification>& notification : m_pop_notifications) {
+		if (notification->get_type() == NotificationType::ExportToRemovableFinished) {
+			if (!on_removable) {
+				const NotificationData old_data = notification->get_data();
+				notification->update( {old_data.type, old_data.level ,old_data.duration, std::string(), old_data.hypertext} );
+			} else {
+				notification->close();
+			}
+			return;
+		}
+	}
+}
+
 }//namespace GUI
 }//namespace Slic3r

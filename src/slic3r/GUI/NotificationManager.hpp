@@ -121,9 +121,10 @@ public:
 	void close_notification_of_type(const NotificationType type);
 	// Which view is active? Plater or G-code preview? Hide warnings in G-code preview.
     void set_in_preview(bool preview);
-	// Move to left to avoid colision with variable layer height gizmo
+	// Move to left to avoid colision with variable layer height gizmo.
 	void set_move_from_overlay(bool move) { m_move_from_overlay = move; }
-
+	// Close old notification ExportToRemovableFinished or transform it to only contain "Eject drive".
+	void new_export_began(bool on_removable);
 private:
 	// duration 0 means not disapearing
 	struct NotificationData {
