@@ -2907,6 +2907,7 @@ unsigned int Plater::priv::update_background_process(bool force_validation, bool
         const wxString invalid_str = _L("Invalid data");
         for (auto btn : {ActionButtonType::abReslice, ActionButtonType::abSendGCode, ActionButtonType::abExport})
             sidebar->set_btn_label(btn, invalid_str);
+        process_completed_with_error = true;
     }
     else
     {
@@ -3507,7 +3508,7 @@ void Plater::priv::on_export_began(wxCommandEvent& evt)
 {
 	if (show_warning_dialog)
 		warnings_dialog();
-    if (this->writing_to_removable_device)
+    if (this->writing_to_removable_device && !process_completed_with_error)
         this->show_ExportToRemovableFinished_notification = true;
 }
 void Plater::priv::on_slicing_began()
@@ -3586,10 +3587,14 @@ void Plater::priv::on_process_completed(SlicingProcessCompletedEvent &evt)
         } else
 		  notification_manager->push_slicing_error_notification(message, *q->get_current_canvas3D());
         this->statusbar()->set_status_text(from_u8(message));
-		const wxString invalid_str = _L("Invalid data");
-		for (auto btn : { ActionButtonType::abReslice, ActionButtonType::abSendGCode, ActionButtonType::abExport })
-			sidebar->set_btn_label(btn, invalid_str);
-		process_completed_with_error = true;
+        if (evt.invalidate_plater())
+        {
+            const wxString invalid_str = _L("Invalid data");
+            for (auto btn : { ActionButtonType::abReslice, ActionButtonType::abSendGCode, ActionButtonType::abExport })
+                sidebar->set_btn_label(btn, invalid_str);
+            process_completed_with_error = true;
+        }
+		
     }
     if (evt.cancelled())
         this->statusbar()->set_status_text(_L("Cancelled"));
@@ -3624,7 +3629,7 @@ void Plater::priv::on_process_completed(SlicingProcessCompletedEvent &evt)
             show_action_buttons(false);
         }
         // If writing to removable drive was scheduled, show notification with eject button
-        if (this->writing_to_removable_device && this->show_ExportToRemovableFinished_notification) {
+        if (this->writing_to_removable_device && this->show_ExportToRemovableFinished_notification && !this->process_completed_with_error) {
             show_action_buttons(false);
             notification_manager->push_notification(NotificationType::ExportToRemovableFinished, *q->get_current_canvas3D());
         }
