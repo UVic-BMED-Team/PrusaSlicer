@@ -1,0 +1,33 @@
+---- Ubuntu 20.04 ----
+libboost-system-dev
+libboost-filesystem-dev
+libboost-thread-dev
+libboost-log-dev
+libboost-locale-dev
+libboost-regex-dev
+libboost-chrono-dev
+libboost-atomic-dev
+libboost-date-time-dev
+libboost-iostreams-dev
+libtbb-dev
+libcurl4-openssl-dev
+zlib1g-dev
+libpng-dev
+freeglut3-dev
+libcereal-dev
+nlopt: Follow the instructions here to install and build nlopt https://github.com/stevengj/nlopt
+libopenvdb-dev
+libcgal-dev
+libwxgtk3.0-gtk3-dev
+libdbus-1-dev
+-------- End ---------
+
+------ Extra Additions ------
+Need to add the following cmake flag to the cmake options
+-DSLIC3R_GTK=3
+Found at this link: https://forum.prusaprinters.org/forum/prusaslicer/errors-building-2-3-0-alpha0-on-linux/
+-------- End --------
+
+------ Needed for Build ------
+libudev-dev
+------ End ----------
