@@ -59,6 +59,7 @@ const std::string CUSTOM_GCODE_PER_PRINT_Z_FILE = "Metadata/Prusa_Slicer_custom_
 static constexpr const char* MODEL_TAG = "model";
 static constexpr const char* RESOURCES_TAG = "resources";
 static constexpr const char* OBJECT_TAG = "object";
+const char* DENSITY_TAG = "density";
 static constexpr const char* MESH_TAG = "mesh";
 static constexpr const char* VERTICES_TAG = "vertices";
 static constexpr const char* VERTEX_TAG = "vertex";
@@ -80,6 +81,7 @@ static constexpr const char* ID_ATTR = "id";
 static constexpr const char* X_ATTR = "x";
 static constexpr const char* Y_ATTR = "y";
 static constexpr const char* Z_ATTR = "z";
+const char* D_ATTR = "d";
 static constexpr const char* V1_ATTR = "v1";
 static constexpr const char* V2_ATTR = "v2";
 static constexpr const char* V3_ATTR = "v3";
@@ -286,6 +288,7 @@ namespace Slic3r {
         struct Geometry
         {
             std::vector<float> vertices;
+            std::vector<float> density;
             std::vector<unsigned int> triangles;
             std::vector<std::string> custom_supports;
             std::vector<std::string> custom_seam;
@@ -511,6 +514,8 @@ namespace Slic3r {
         // callbacks to parse the MODEL_CONFIG_FILE file
         static void XMLCALL _handle_start_config_xml_element(void* userData, const char* name, const char** attributes);
         static void XMLCALL _handle_end_config_xml_element(void* userData, const char* name);
+
+        bool _handle_density(const char **attributes, unsigned int num_attributes);
     };
 
     _3MF_Importer::_3MF_Importer()
@@ -1267,6 +1272,8 @@ namespace Slic3r {
             res = _handle_start_vertices(attributes, num_attributes);
         else if (::strcmp(VERTEX_TAG, name) == 0)
             res = _handle_start_vertex(attributes, num_attributes);
+        else if (::strcmp(DENSITY_TAG, name) == 0)
+            res = _handle_density(attributes, num_attributes);
         else if (::strcmp(TRIANGLES_TAG, name) == 0)
             res = _handle_start_triangles(attributes, num_attributes);
         else if (::strcmp(TRIANGLE_TAG, name) == 0)
@@ -1528,6 +1535,14 @@ namespace Slic3r {
     bool _3MF_Importer::_handle_end_vertex()
     {
         // do nothing
+        return true;
+    }
+
+    bool _3MF_Importer::_handle_density(const char** attributes, unsigned int num_attributes)
+    {
+        float tempVariable = get_attribute_value_float(attributes, num_attributes, D_ATTR);
+        m_curr_object.geometry.density.push_back(tempVariable);
+        std::cout << "Density Value: " << tempVariable << std::endl;
         return true;
     }
 
