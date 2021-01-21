@@ -1540,6 +1540,7 @@ namespace Slic3r {
 
     bool _3MF_Importer::_handle_density(const char** attributes, unsigned int num_attributes)
     {
+        // TODO: Clean this function up once the density is being included in the G-CODE
         float tempVariable = get_attribute_value_float(attributes, num_attributes, D_ATTR);
         m_curr_object.geometry.density.push_back(tempVariable);
         std::cout << "Density Value: " << tempVariable << std::endl;
