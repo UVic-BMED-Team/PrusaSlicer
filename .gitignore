@@ -3,6 +3,7 @@ Build.bat
 MYMETA.json
 MYMETA.yml
 _build
+build
 blib
 xs/buildtmp
 *.o
