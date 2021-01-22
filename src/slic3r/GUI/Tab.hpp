@@ -40,6 +40,7 @@ namespace Slic3r {
 namespace GUI {
 
 class TabPresetComboBox;
+class OG_CustomCtrl;
 
 // Single Tab page containing a{ vsizer } of{ optgroups }
 // package Slic3r::GUI::Tab::Page;
@@ -52,15 +53,11 @@ class Page// : public wxScrolledWindow
 	wxBoxSizer*		m_vsizer;
     bool            m_show = true;
 public:
-    Page(wxWindow* parent, const wxString& title, const int iconID,
-         const std::vector<ScalableBitmap>& mode_bmp_cache);
+    Page(wxWindow* parent, const wxString& title, int iconID);
 	~Page() {}
 
 	bool				m_is_modified_values{ false };
 	bool				m_is_nonsys_values{ true };
-
-    // Delayed layout after resizing the main window.
-    const std::vector<ScalableBitmap>&   m_mode_bitmap_cache;
 
 public:
 	std::vector <ConfigOptionsGroupShp> m_optgroups;
@@ -77,6 +74,7 @@ public:
     void        clear();
     void        msw_rescale();
     void        sys_color_changed();
+    void        refresh();
 	Field*		get_field(const t_config_option_key& opt_key, int opt_index = -1) const;
 	bool		set_value(const t_config_option_key& opt_key, const boost::any& value);
 	ConfigOptionsGroupShp	new_optgroup(const wxString& title, int noncommon_label_width = -1);
@@ -98,10 +96,6 @@ protected:
 	// Color of TreeCtrlItem. The wxColour will be updated only if the new wxColour pointer differs from the currently rendered one.
 	const wxColour*		m_item_color;
 };
-
-
-wxDECLARE_EVENT(EVT_TAB_VALUE_CHANGED, wxCommandEvent);
-wxDECLARE_EVENT(EVT_TAB_PRESETS_CHANGED, SimpleEvent);
 
 
 using PageShp = std::shared_ptr<Page>;
@@ -138,8 +132,8 @@ protected:
 		ScalableButton 	*btn  = nullptr;
 		std::string  key_list; // "compatible_printers"
 		std::string  key_condition;
-		std::string  dialog_title;
-		std::string  dialog_label;
+		wxString     dialog_title;
+		wxString     dialog_label;
 	};
 	PresetDependencies 	m_compatible_printers;
 	PresetDependencies 	m_compatible_prints;
@@ -170,7 +164,6 @@ protected:
     std::vector<ScalableButton*>	m_scaled_buttons = {};    
     std::vector<ScalableBitmap*>	m_scaled_bitmaps = {};    
     std::vector<ScalableBitmap>     m_scaled_icons_list = {};
-    std::vector<ScalableBitmap>     m_mode_bitmap_cache = {};
 
 	// Colors for ui "decoration"
 	wxColour			m_sys_label_clr;
@@ -225,15 +218,15 @@ protected:
 	struct Highlighter
 	{
 		void set_timer_owner(wxEvtHandler* owner, int timerid = wxID_ANY);
-		void init(BlinkingBitmap* bmp);
+		void init(std::pair<OG_CustomCtrl*, bool*>);
 		void blink();
 		void invalidate();
 
 	private:
-
-		BlinkingBitmap*	bbmp {nullptr};
-		int				blink_counter {0};
-	    wxTimer         timer;
+		OG_CustomCtrl*	m_custom_ctrl	{nullptr};
+		bool*			m_show_blink_ptr{nullptr};
+		int				m_blink_counter	{0};
+	    wxTimer         m_timer;
 	} 
     m_highlighter;
 
@@ -251,13 +244,9 @@ public:
 	ogStaticText*		m_parent_preset_description_line = nullptr;
 	ScalableButton*		m_detach_preset_btn	= nullptr;
 
-	// map of option name -> wxStaticText (colored label, associated with option) 
+	// map of option name -> wxColour (color of the colored label, associated with option) 
     // Used for options which don't have corresponded field
-	std::map<std::string, wxStaticText*>	m_colored_Labels;
-
-	// map of option name -> BlinkingBitmap (blinking ikon, associated with option) 
-    // Used for options which don't have corresponded field
-	std::map<std::string, BlinkingBitmap*>	m_blinking_ikons;
+	std::map<std::string, wxColour>	m_colored_Label_colors;
 
     // Counter for the updating (because of an update() function can have a recursive behavior):
     // 1. increase value from the very beginning of an update() function
@@ -306,7 +295,7 @@ public:
 	void		toggle_show_hide_incompatible();
 	void		update_show_hide_incompatible_button();
 	void		update_ui_from_settings();
-	void		update_labels_colour();
+	void		update_label_colours();
 	void		decorate();
 	void		update_changed_ui();
 	void		get_sys_and_mod_flags(const std::string& opt_key, bool& sys_page, bool& modified_page);
@@ -316,6 +305,7 @@ public:
 	void		on_roll_back_value(const bool to_sys = false);
 
 	PageShp		add_options_page(const wxString& title, const std::string& icon, bool is_extruder_pages = false);
+	static wxString translate_category(const wxString& title, Preset::Type preset_type);
 
 	virtual void	OnActivate();
 	virtual void	on_preset_loaded() {}
@@ -333,6 +323,8 @@ public:
     virtual void    msw_rescale();
     virtual void	sys_color_changed();
 	Field*			get_field(const t_config_option_key& opt_key, int opt_index = -1) const;
+	std::pair<OG_CustomCtrl*, bool*> get_custom_ctrl_with_blinking_ptr(const t_config_option_key& opt_key, int opt_index = -1);
+
     Field*          get_field(const t_config_option_key &opt_key, Page** selected_page, int opt_index = -1);
 	void			toggle_option(const std::string& opt_key, bool toggle, int opt_index = -1);
 	wxSizer*		description_line_widget(wxWindow* parent, ogStaticText** StaticText, wxString text = wxEmptyString);
@@ -352,7 +344,7 @@ public:
 	const std::map<wxString, std::string>& get_category_icon_map() { return m_category_icon; }
 
 protected:
-	void			create_line_with_widget(ConfigOptionsGroup* optgroup, const std::string& opt_key, widget_t widget);
+	void			create_line_with_widget(ConfigOptionsGroup* optgroup, const std::string& opt_key, const wxString& path, widget_t widget);
 	wxSizer*		compatible_widget_create(wxWindow* parent, PresetDependencies &deps);
 	void 			compatible_widget_reload(PresetDependencies &deps);
 	void			load_key_value(const std::string& opt_key, const boost::any& value, bool saved_value = false);
@@ -435,9 +427,6 @@ private:
     std::vector<PageShp>			m_pages_sla;
 
 public:
-	wxButton*	m_serial_test_btn = nullptr;
-	ScalableButton*	m_print_host_test_btn = nullptr;
-	ScalableButton*	m_printhost_browse_btn = nullptr;
 	ScalableButton*	m_reset_to_filament_color = nullptr;
 
 	size_t		m_extruders_count;
@@ -457,6 +446,7 @@ public:
 	void		build_print_host_upload_group(Page* page);
     void		build_fff();
     void		build_sla();
+	void		reload_config() override;
 	void		activate_selected_page(std::function<void()> throw_if_canceled) override;
 	void		clear_pages() override;
 	void		toggle_options() override;

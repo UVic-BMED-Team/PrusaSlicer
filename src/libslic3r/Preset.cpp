@@ -410,7 +410,7 @@ const std::vector<std::string>& Preset::print_options()
         "infill_every_layers", "infill_only_where_needed", "solid_infill_every_layers", "fill_angle", "bridge_angle",
         "solid_infill_below_area", "only_retract_when_crossing_perimeters", "infill_first", 
     	"ironing", "ironing_type", "ironing_flowrate", "ironing_speed", "ironing_spacing",
-        "max_print_speed", "max_volumetric_speed",
+        "max_print_speed", "max_volumetric_speed", "avoid_crossing_perimeters_max_detour",
 #ifdef HAS_PRESSURE_EQUALIZER
         "max_volumetric_extrusion_rate_slope_positive", "max_volumetric_extrusion_rate_slope_negative",
 #endif /* HAS_PRESSURE_EQUALIZER */
@@ -427,7 +427,7 @@ const std::vector<std::string>& Preset::print_options()
         "infill_extruder", "solid_infill_extruder", "support_material_extruder", "support_material_interface_extruder",
         "ooze_prevention", "standby_temperature_delta", "interface_shells", "extrusion_width", "first_layer_extrusion_width",
         "perimeter_extrusion_width", "external_perimeter_extrusion_width", "infill_extrusion_width", "solid_infill_extrusion_width",
-        "top_infill_extrusion_width", "support_material_extrusion_width", "infill_overlap", "bridge_flow_ratio", "clip_multipart_objects",
+        "top_infill_extrusion_width", "support_material_extrusion_width", "infill_overlap", "infill_anchor", "infill_anchor_max", "bridge_flow_ratio", "clip_multipart_objects",
         "elefant_foot_compensation", "xy_size_compensation", "threads", "resolution", "wipe_tower", "wipe_tower_x", "wipe_tower_y",
         "wipe_tower_width", "wipe_tower_rotation_angle", "wipe_tower_bridging", "single_extruder_multi_material_priming",
         "wipe_tower_no_sparse_layers", "compatible_printers", "compatible_printers_condition", "inherits"
@@ -439,11 +439,11 @@ const std::vector<std::string>& Preset::filament_options()
 {
     static std::vector<std::string> s_opts {
         "filament_colour", "filament_diameter", "filament_type", "filament_soluble", "filament_notes", "filament_max_volumetric_speed",
-        "extrusion_multiplier", "filament_density", "filament_cost", "filament_loading_speed", "filament_loading_speed_start", "filament_load_time",
+        "extrusion_multiplier", "filament_density", "filament_cost", "filament_spool_weight", "filament_loading_speed", "filament_loading_speed_start", "filament_load_time",
         "filament_unloading_speed", "filament_unloading_speed_start", "filament_unload_time", "filament_toolchange_delay", "filament_cooling_moves",
         "filament_cooling_initial_speed", "filament_cooling_final_speed", "filament_ramming_parameters", "filament_minimal_purge_on_wipe_tower",
         "temperature", "first_layer_temperature", "bed_temperature", "first_layer_bed_temperature", "fan_always_on", "cooling", "min_fan_speed",
-        "max_fan_speed", "bridge_fan_speed", "disable_fan_first_layers", "fan_below_layer_time", "slowdown_below_layer_time", "min_print_speed",
+        "max_fan_speed", "bridge_fan_speed", "disable_fan_first_layers", "full_fan_speed_layer", "fan_below_layer_time", "slowdown_below_layer_time", "min_print_speed",
         "start_filament_gcode", "end_filament_gcode",
         // Retract overrides
         "filament_retract_length", "filament_retract_lift", "filament_retract_lift_above", "filament_retract_lift_below", "filament_retract_speed", "filament_deretract_speed", "filament_retract_restart_extra", "filament_retract_before_travel",
@@ -475,8 +475,9 @@ const std::vector<std::string>& Preset::printer_options()
     if (s_opts.empty()) {
         s_opts = {
             "printer_technology",
-            "bed_shape", "bed_custom_texture", "bed_custom_model", "z_offset", "gcode_flavor", "use_relative_e_distances", "serial_port", "serial_speed",
+            "bed_shape", "bed_custom_texture", "bed_custom_model", "z_offset", "gcode_flavor", "use_relative_e_distances",
             "use_firmware_retraction", "use_volumetric_e", "variable_layer_height",
+            //FIXME the print host keys are left here just for conversion from the Printer preset to Physical Printer preset.
             "host_type", "print_host", "printhost_apikey", "printhost_cafile",
             "single_extruder_multi_material", "start_gcode", "end_gcode", "before_layer_gcode", "layer_gcode", "toolchange_gcode",
             "color_change_gcode", "pause_print_gcode", "template_custom_gcode",
@@ -595,6 +596,7 @@ const std::vector<std::string>& Preset::sla_printer_options()
             "gamma_correction",
             "min_exposure_time", "max_exposure_time",
             "min_initial_exposure_time", "max_initial_exposure_time",
+            //FIXME the print host keys are left here just for conversion from the Printer preset to Physical Printer preset.
             "print_host", "printhost_apikey", "printhost_cafile",
             "printer_notes",
             "inherits"
@@ -711,38 +713,6 @@ Preset& PresetCollection::load_preset(const std::string &path, const std::string
     return this->load_preset(path, name, std::move(cfg), select);
 }
 
-enum class ProfileHostParams
-{
-	Same,
-	Different,
-	Anonymized,
-};
-
-static ProfileHostParams profile_host_params_same_or_anonymized(const DynamicPrintConfig &cfg_old, const DynamicPrintConfig &cfg_new)
-{
-	auto opt_print_host_old 	  = cfg_old.option<ConfigOptionString>("print_host");
-	auto opt_printhost_apikey_old = cfg_old.option<ConfigOptionString>("printhost_apikey");
-	auto opt_printhost_cafile_old = cfg_old.option<ConfigOptionString>("printhost_cafile");
-
-	auto opt_print_host_new 	  = cfg_new.option<ConfigOptionString>("print_host");
-	auto opt_printhost_apikey_new = cfg_new.option<ConfigOptionString>("printhost_apikey");
-	auto opt_printhost_cafile_new = cfg_new.option<ConfigOptionString>("printhost_cafile");
-
-	// If the new print host data is undefined, use the old data.
-	bool new_print_host_undefined = (opt_print_host_new 		== nullptr || opt_print_host_new		->empty()) &&
-									(opt_printhost_apikey_new 	== nullptr || opt_printhost_apikey_new	->empty()) &&
-									(opt_printhost_cafile_new 	== nullptr || opt_printhost_cafile_new	->empty());
-	if (new_print_host_undefined)
-		return ProfileHostParams::Anonymized;
-
-	auto opt_same = [](const ConfigOptionString *l, const ConfigOptionString *r) {
-		return ((l == nullptr || l->empty()) && (r == nullptr || r->empty())) ||
-			   (l != nullptr && r != nullptr && l->value == r->value);
-	};
-	return (opt_same(opt_print_host_old, opt_print_host_new) && opt_same(opt_printhost_apikey_old, opt_printhost_apikey_new) && 
-		    opt_same(opt_printhost_cafile_old, opt_printhost_cafile_new)) ? ProfileHostParams::Same : ProfileHostParams::Different;
-}
-
 static bool profile_print_params_same(const DynamicPrintConfig &cfg_old, const DynamicPrintConfig &cfg_new)
 {
     t_config_option_keys diff = cfg_old.diff(cfg_new);
@@ -752,67 +722,87 @@ static bool profile_print_params_same(const DynamicPrintConfig &cfg_old, const D
                              "compatible_printers", "compatible_printers_condition", "inherits",
                              "print_settings_id", "filament_settings_id", "sla_print_settings_id", "sla_material_settings_id", "printer_settings_id",
                              "printer_model", "printer_variant", "default_print_profile", "default_filament_profile", "default_sla_print_profile", "default_sla_material_profile",
+                             //FIXME remove the print host keys?
                              "print_host", "printhost_apikey", "printhost_cafile" })
         diff.erase(std::remove(diff.begin(), diff.end(), key), diff.end());
     // Preset with the same name as stored inside the config exists.
-    return diff.empty() && profile_host_params_same_or_anonymized(cfg_old, cfg_new) != ProfileHostParams::Different;
+    return diff.empty();
 }
 
 // Load a preset from an already parsed config file, insert it into the sorted sequence of presets
 // and select it, losing previous modifications.
-// In case
-Preset& PresetCollection::load_external_preset(
+// Only a single profile could be edited at at the same time, which introduces complexity when loading
+// filament profiles for multi-extruder printers.
+std::pair<Preset*, bool> PresetCollection::load_external_preset(
     // Path to the profile source file (a G-code, an AMF or 3MF file, a config file)
     const std::string           &path,
     // Name of the profile, derived from the source file name.
     const std::string           &name,
     // Original name of the profile, extracted from the loaded config. Empty, if the name has not been stored.
     const std::string           &original_name,
-    // Config to initialize the preset from.
-    const DynamicPrintConfig    &config,
+    // Config to initialize the preset from. It may contain configs of all presets merged in a single dictionary!
+    const DynamicPrintConfig    &combined_config,
     // Select the preset after loading?
-    bool                         select)
+    LoadAndSelect                select)
 {
     // Load the preset over a default preset, so that the missing fields are filled in from the default preset.
-    DynamicPrintConfig cfg(this->default_preset_for(config).config);
-    cfg.apply_only(config, cfg.keys(), true);
+    DynamicPrintConfig cfg(this->default_preset_for(combined_config).config);
+    const auto        &keys = cfg.keys();
+    cfg.apply_only(combined_config, keys, true);
+    std::string                 &inherits = Preset::inherits(cfg);
+    if (select == LoadAndSelect::Never) {
+        // Some filament profile has been selected and modified already.
+        // Check whether this profile is equal to the modified edited profile.
+        const Preset &edited = this->get_edited_preset();
+        if ((edited.name == original_name || edited.name == inherits) && profile_print_params_same(edited.config, cfg))
+            // Just point to that already selected and edited profile.
+            return std::make_pair(&(*this->find_preset_internal(edited.name)), false);
+    }
     // Is there a preset already loaded with the name stored inside the config?
-    std::deque<Preset>::iterator it = this->find_preset_internal(original_name);
-    bool                         found = it != m_presets.end() && it->name == original_name;
+    std::deque<Preset>::iterator it       = this->find_preset_internal(original_name);
+    bool                         found    = it != m_presets.end() && it->name == original_name;
     if (! found) {
     	// Try to match the original_name against the "renamed_from" profile names of loaded system profiles.
 		it = this->find_preset_renamed(original_name);
 		found = it != m_presets.end();
     }
+    if (found && profile_print_params_same(it->config, cfg)) {
+        // The preset exists and it matches the values stored inside config.
+        if (select == LoadAndSelect::Always)
+            this->select_preset(it - m_presets.begin());
+        return std::make_pair(&(*it), false);
+    }
+    if (! found && select != LoadAndSelect::Never && ! inherits.empty()) {
+        // Try to use a system profile as a base to select the system profile
+        // and override its settings with the loaded ones.
+        assert(it == m_presets.end());
+        it    = this->find_preset_internal(inherits);
+        found = it != m_presets.end() && it->name == inherits;
+        if (found && profile_print_params_same(it->config, cfg)) {
+            // The system preset exists and it matches the values stored inside config.
+            if (select == LoadAndSelect::Always)
+                this->select_preset(it - m_presets.begin());
+            return std::make_pair(&(*it), false);
+        }
+    }
     if (found) {
-    	if (profile_print_params_same(it->config, cfg)) {
-	        // The preset exists and it matches the values stored inside config.
-	        if (select)
-	            this->select_preset(it - m_presets.begin());
-	        return *it;
-	    }
-	    if (profile_host_params_same_or_anonymized(it->config, cfg) == ProfileHostParams::Anonymized) {
-	    	// The project being loaded is anonymized. Replace the empty host keys of the loaded profile with the data from the original profile.
-	    	// See "Octoprint Settings when Opening a .3MF file" GH issue #3244
-	    	auto opt_update = [it, &cfg](const std::string &opt_key) {
-				auto opt = it->config.option<ConfigOptionString>(opt_key);
-				if (opt != nullptr)
-					cfg.set_key_value(opt_key, opt->clone());
-	    	};
-	    	opt_update("print_host");
-	    	opt_update("printhost_apikey");
-	    	opt_update("printhost_cafile");
-	    }
+        if (select != LoadAndSelect::Never) {
+            // Select the existing preset and override it with new values, so that
+            // the differences will be shown in the preset editor against the referenced profile.
+            this->select_preset(it - m_presets.begin());
+            // The source config may contain keys from many possible preset types. Just copy those that relate to this preset.
+            this->get_edited_preset().config.apply_only(combined_config, keys, true);
+            this->update_dirty();
+            assert(this->get_edited_preset().is_dirty);
+            return std::make_pair(&(*it), this->get_edited_preset().is_dirty);
+        }
+        if (inherits.empty()) {
+            // Update the "inherits" field.
+            // There is a profile with the same name already loaded. Should we update the "inherits" field?
+            inherits = it->vendor ? it->name : it->inherits();
+        }
     }
-    // Update the "inherits" field.
-    std::string &inherits = Preset::inherits(cfg);
-    if (found && inherits.empty()) {
-        // There is a profile with the same name already loaded. Should we update the "inherits" field?
-        if (it->vendor == nullptr)
-            inherits = it->inherits();
-        else
-            inherits = it->name;
-    }
+
     // The external preset does not match an internal preset, load the external preset.
     std::string new_name;
     for (size_t idx = 0;; ++ idx) {
@@ -833,19 +823,19 @@ Preset& PresetCollection::load_external_preset(
             break;
         if (profile_print_params_same(it->config, cfg)) {
             // The preset exists and it matches the values stored inside config.
-            if (select)
+            if (select == LoadAndSelect::Always)
                 this->select_preset(it - m_presets.begin());
-            return *it;
+            return std::make_pair(&(*it), false);
         }
         // Form another profile name.
     }
     // Insert a new profile.
-    Preset &preset = this->load_preset(path, new_name, std::move(cfg), select);
+    Preset &preset = this->load_preset(path, new_name, std::move(cfg), select == LoadAndSelect::Always);
     preset.is_external = true;
     if (&this->get_selected_preset() == &preset)
         this->get_edited_preset().is_external = true;
 
-    return preset;
+    return std::make_pair(&preset, false);
 }
 
 Preset& PresetCollection::load_preset(const std::string &path, const std::string &name, DynamicPrintConfig &&config, bool select)
@@ -1001,7 +991,15 @@ const Preset* PresetCollection::get_preset_parent(const Preset& child) const
 		if (it != m_presets.end()) 
 			preset = &(*it);
     }
-    return (preset == nullptr/* || preset->is_default */|| preset->is_external) ? nullptr : preset;
+    return 
+         // not found
+        (preset == nullptr/* || preset->is_default */|| 
+         // this should not happen, user profile should not derive from an external profile
+         preset->is_external ||
+         // this should not happen, however people are creative, see GH #4996
+         preset == &child) ? 
+            nullptr : 
+            preset;
 }
 
 // Return vendor of the first parent profile, for which the vendor is defined, or null if such profile does not exist.
@@ -1154,18 +1152,22 @@ inline t_config_option_keys deep_diff(const ConfigBase &config_this, const Confi
         if (this_opt != nullptr && other_opt != nullptr && *this_opt != *other_opt)
         {
             if (opt_key == "bed_shape" || opt_key == "thumbnails" || opt_key == "compatible_prints" || opt_key == "compatible_printers") {
+                // Scalar variable, or a vector variable, which is independent from number of extruders,
+                // thus the vector is presented to the user as a single input.
                 diff.emplace_back(opt_key);
-                continue;
-            }
-            switch (other_opt->type())
-            {
-            case coInts:    add_correct_opts_to_diff<ConfigOptionInts       >(opt_key, diff, config_other, config_this);  break;
-            case coBools:   add_correct_opts_to_diff<ConfigOptionBools      >(opt_key, diff, config_other, config_this);  break;
-            case coFloats:  add_correct_opts_to_diff<ConfigOptionFloats     >(opt_key, diff, config_other, config_this);  break;
-            case coStrings: add_correct_opts_to_diff<ConfigOptionStrings    >(opt_key, diff, config_other, config_this);  break;
-            case coPercents:add_correct_opts_to_diff<ConfigOptionPercents   >(opt_key, diff, config_other, config_this);  break;
-            case coPoints:  add_correct_opts_to_diff<ConfigOptionPoints     >(opt_key, diff, config_other, config_this);  break;
-            default:        diff.emplace_back(opt_key);     break;
+            } else if (opt_key == "default_filament_profile") {
+                // Ignore this field, it is not presented to the user, therefore showing a "modified" flag for this parameter does not help.
+                // Also the length of this field may differ, which may lead to a crash if the block below is used.
+            } else {
+                switch (other_opt->type()) {
+                case coInts:    add_correct_opts_to_diff<ConfigOptionInts       >(opt_key, diff, config_other, config_this);  break;
+                case coBools:   add_correct_opts_to_diff<ConfigOptionBools      >(opt_key, diff, config_other, config_this);  break;
+                case coFloats:  add_correct_opts_to_diff<ConfigOptionFloats     >(opt_key, diff, config_other, config_this);  break;
+                case coStrings: add_correct_opts_to_diff<ConfigOptionStrings    >(opt_key, diff, config_other, config_this);  break;
+                case coPercents:add_correct_opts_to_diff<ConfigOptionPercents   >(opt_key, diff, config_other, config_this);  break;
+                case coPoints:  add_correct_opts_to_diff<ConfigOptionPoints     >(opt_key, diff, config_other, config_this);  break;
+                default:        diff.emplace_back(opt_key);     break;
+                }
             }
         }
     }
@@ -1318,6 +1320,8 @@ std::string PresetCollection::section_name() const
     }
 }
 
+// Used for validating the "inherits" flag when importing user's config bundles.
+// Returns names of all system presets including the former names of these presets.
 std::vector<std::string> PresetCollection::system_preset_names() const
 {
     size_t num = 0;
@@ -1327,8 +1331,10 @@ std::vector<std::string> PresetCollection::system_preset_names() const
     std::vector<std::string> out;
     out.reserve(num);
     for (const Preset &preset : m_presets)
-        if (preset.is_system)
+        if (preset.is_system) {
             out.emplace_back(preset.name);
+            out.insert(out.end(), preset.renamed_from.begin(), preset.renamed_from.end());
+        }
     std::sort(out.begin(), out.end());
     return out;
 }
@@ -1374,31 +1380,25 @@ const std::vector<std::string>& PhysicalPrinter::printer_options()
             "preset_name",
             "printer_technology",
 //            "printer_model",
-            "host_type", 
-            "print_host", 
-            "printhost_apikey", 
+            "host_type",
+            "print_host",
+            "printhost_apikey",
             "printhost_cafile",
+            "printhost_port",
             "printhost_authorization_type",
             // HTTP digest authentization (RFC 2617)
-            "printhost_user", 
+            "printhost_user",
             "printhost_password"
         };
     }
     return s_opts;
 }
 
-const std::vector<std::string>& PhysicalPrinter::print_host_options()
-{
-    static std::vector<std::string> s_opts;
-    if (s_opts.empty()) {
-        s_opts = {
-            "print_host",
-            "printhost_apikey",
-            "printhost_cafile"
-        };
-    }
-    return s_opts;
-}
+static constexpr auto legacy_print_host_options = {
+    "print_host",
+    "printhost_apikey",
+    "printhost_cafile",
+};
 
 std::vector<std::string> PhysicalPrinter::presets_with_print_host_information(const PrinterPresetCollection& printer_presets)
 {
@@ -1412,7 +1412,7 @@ std::vector<std::string> PhysicalPrinter::presets_with_print_host_information(co
 
 bool PhysicalPrinter::has_print_host_information(const DynamicPrintConfig& config)
 {
-    for (const std::string& opt : print_host_options())
+    for (const char *opt : legacy_print_host_options)
         if (!config.opt_string(opt).empty())
             return true;
 
@@ -1429,6 +1429,7 @@ bool PhysicalPrinter::has_empty_config() const
     return  config.opt_string("print_host"        ).empty() && 
             config.opt_string("printhost_apikey"  ).empty() && 
             config.opt_string("printhost_cafile"  ).empty() && 
+            config.opt_string("printhost_port"    ).empty() &&
             config.opt_string("printhost_user"    ).empty() && 
             config.opt_string("printhost_password").empty();
 }
@@ -1488,6 +1489,12 @@ bool PhysicalPrinter::add_preset(const std::string& preset_name)
 bool PhysicalPrinter::delete_preset(const std::string& preset_name)
 {
     return preset_names.erase(preset_name) > 0;
+}
+
+PhysicalPrinter::PhysicalPrinter(const std::string& name, const DynamicPrintConfig& default_config) : 
+    name(name), config(default_config)
+{
+    update_from_config(config);
 }
 
 PhysicalPrinter::PhysicalPrinter(const std::string& name, const DynamicPrintConfig &default_config, const Preset& preset) :
@@ -1614,9 +1621,7 @@ void PhysicalPrinterCollection::load_printers_from_presets(PrinterPresetCollecti
     int cnt=0;
     for (Preset& preset: printer_presets) {
         DynamicPrintConfig& config = preset.config;
-        const std::vector<std::string>& options = PhysicalPrinter::print_host_options();
-
-        for(const std::string& option : options) {
+        for(const char* option : legacy_print_host_options) {
             if (!config.opt_string(option).empty()) {
                 // check if printer with those "Print Host upload" options already exist
                 PhysicalPrinter* existed_printer = find_printer_with_same_config(config);
@@ -1635,7 +1640,7 @@ void PhysicalPrinterCollection::load_printers_from_presets(PrinterPresetCollecti
                 }
 
                 // erase "Print Host upload" information from the preset
-                for (const std::string& opt : options)
+                for (const char *opt : legacy_print_host_options)
                     config.opt_string(opt).clear();
                 // save changes for preset
                 preset.save();
@@ -1643,7 +1648,7 @@ void PhysicalPrinterCollection::load_printers_from_presets(PrinterPresetCollecti
                 // update those changes for edited preset if it's equal to the preset
                 Preset& edited = printer_presets.get_edited_preset();
                 if (preset.name == edited.name) {
-                    for (const std::string& opt : options)
+                    for (const char *opt : legacy_print_host_options)
                         edited.config.opt_string(opt).clear();
                 }
 
@@ -1692,7 +1697,7 @@ PhysicalPrinter* PhysicalPrinterCollection::find_printer_with_same_config(const 
 {
     for (const PhysicalPrinter& printer :*this) {
         bool is_equal = true;
-        for (const std::string& opt : PhysicalPrinter::print_host_options())
+        for (const char *opt : legacy_print_host_options)
             if (is_equal && printer.config.opt_string(opt) != config.opt_string(opt))
                 is_equal = false;
                 
@@ -1848,6 +1853,13 @@ void PhysicalPrinterCollection::select_printer(const std::string& full_name)
         m_selected_preset = it->get_preset_name(full_name);
 }
 
+void PhysicalPrinterCollection::select_printer(const std::string& printer_name, const std::string& preset_name)
+{
+    if (preset_name.empty())
+        return select_printer(printer_name);
+    return select_printer(printer_name + PhysicalPrinter::separator() + preset_name);
+}
+
 void PhysicalPrinterCollection::select_printer(const PhysicalPrinter& printer)
 {
     return select_printer(printer.name);
@@ -1886,13 +1898,15 @@ namespace PresetUtils {
 		return out;
 	}
 
-#if ENABLE_GCODE_VIEWER
     std::string system_printer_bed_model(const Preset& preset)
     {
         std::string out;
         const VendorProfile::PrinterModel* pm = PresetUtils::system_printer_model(preset);
-        if (pm != nullptr && !pm->bed_model.empty())
-            out = Slic3r::resources_dir() + "/profiles/" + preset.vendor->id + "/" + pm->bed_model;
+        if (pm != nullptr && !pm->bed_model.empty()) {
+            out = Slic3r::data_dir() + "/vendor/" + preset.vendor->id + "/" + pm->bed_model;
+            if (!boost::filesystem::exists(boost::filesystem::path(out)))
+                out = Slic3r::resources_dir() + "/profiles/" + preset.vendor->id + "/" + pm->bed_model;
+        }
         return out;
     }
 
@@ -1900,11 +1914,13 @@ namespace PresetUtils {
     {
         std::string out;
         const VendorProfile::PrinterModel* pm = PresetUtils::system_printer_model(preset);
-        if (pm != nullptr && !pm->bed_texture.empty())
-            out = Slic3r::resources_dir() + "/profiles/" + preset.vendor->id + "/" + pm->bed_texture;
+        if (pm != nullptr && !pm->bed_texture.empty()) {
+            out = Slic3r::data_dir() + "/vendor/" + preset.vendor->id + "/" + pm->bed_texture;
+            if (!boost::filesystem::exists(boost::filesystem::path(out)))
+                out = Slic3r::resources_dir() + "/profiles/" + preset.vendor->id + "/" + pm->bed_texture;
+        }
         return out;
     }
-#endif // ENABLE_GCODE_VIEWER
 } // namespace PresetUtils
 
 } // namespace Slic3r

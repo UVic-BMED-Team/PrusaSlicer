@@ -58,12 +58,10 @@ add_library(libslic3r STATIC
     Fill/FillGyroid.hpp
     Fill/FillPlanePath.cpp
     Fill/FillPlanePath.hpp
+    Fill/FillLine.cpp
+    Fill/FillLine.hpp
     Fill/FillRectilinear.cpp
     Fill/FillRectilinear.hpp
-    Fill/FillRectilinear2.cpp
-    Fill/FillRectilinear2.hpp
-    Fill/FillRectilinear3.cpp
-    Fill/FillRectilinear3.hpp
     Flow.cpp
     Flow.hpp
     format.hpp
@@ -81,8 +79,6 @@ add_library(libslic3r STATIC
     Format/STL.hpp
     Format/SL1.hpp
     Format/SL1.cpp
-    GCode/Analyzer.cpp
-    GCode/Analyzer.hpp
     GCode/ThumbnailData.cpp
     GCode/ThumbnailData.hpp
     GCode/CoolingBuffer.cpp
@@ -91,8 +87,6 @@ add_library(libslic3r STATIC
     GCode/PostProcessor.hpp
 #    GCode/PressureEqualizer.cpp
 #    GCode/PressureEqualizer.hpp
-    GCode/PreviewData.cpp
-    GCode/PreviewData.hpp
     GCode/PrintExtents.cpp
     GCode/PrintExtents.hpp
     GCode/SpiralVase.cpp
@@ -105,14 +99,14 @@ add_library(libslic3r STATIC
     GCode/WipeTower.hpp
     GCode/GCodeProcessor.cpp
     GCode/GCodeProcessor.hpp
+    GCode/AvoidCrossingPerimeters.cpp
+    GCode/AvoidCrossingPerimeters.hpp
     GCode.cpp
     GCode.hpp
     GCodeReader.cpp
     GCodeReader.hpp
     # GCodeSender.cpp
     # GCodeSender.hpp
-    GCodeTimeEstimator.cpp
-    GCodeTimeEstimator.hpp
     GCodeWriter.cpp
     GCodeWriter.hpp
     Geometry.cpp
@@ -134,8 +128,6 @@ add_library(libslic3r STATIC
     CustomGCode.hpp
     Arrange.hpp
     Arrange.cpp
-    MotionPlanner.cpp
-    MotionPlanner.hpp
     MultiPoint.cpp
     MultiPoint.hpp
     MutablePriorityQueue.hpp
@@ -167,8 +159,8 @@ add_library(libslic3r STATIC
     PrintConfig.hpp
     PrintObject.cpp
     PrintRegion.cpp
-    PNGRead.hpp
-    PNGRead.cpp
+    PNGReadWrite.hpp
+    PNGReadWrite.cpp
     Semver.cpp
     ShortestPath.cpp
     ShortestPath.hpp
