@@ -305,6 +305,17 @@ namespace Slic3r {
                 custom_supports.clear();
                 custom_seam.clear();
             }
+
+            float interpolateDensity(std::vector<unsigned int> point)
+            {
+                return interpolateDensityFromTriangle(0, point);
+            }
+
+            float interpolateDensityFromTriangle(unsigned int triangle, std::vector<unsigned int> point)
+            {
+                // Compute the density of the point based of the density of the vertices
+                return 0.0;
+            }
         };
 
         struct CurrentObject
@@ -1540,10 +1551,7 @@ namespace Slic3r {
 
     bool _3MF_Importer::_handle_density(const char** attributes, unsigned int num_attributes)
     {
-<<<<<<< HEAD
-=======
         // TODO: Clean this function up once the density is being included in the G-CODE
->>>>>>> 927876ac4ac60a33b466eb40d8cae05f508d12a2
         float tempVariable = get_attribute_value_float(attributes, num_attributes, D_ATTR);
         m_curr_object.geometry.density.push_back(tempVariable);
         std::cout << "Density Value: " << tempVariable << std::endl;
