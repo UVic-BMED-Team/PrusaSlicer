@@ -4,6 +4,7 @@ MYMETA.json
 MYMETA.yml
 _build
 build
+usr
 blib
 xs/buildtmp
 *.o
