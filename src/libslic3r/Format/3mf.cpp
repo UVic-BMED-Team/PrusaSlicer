@@ -306,7 +306,8 @@ namespace Slic3r {
                 custom_seam.clear();
             }
 
-            std::vector<float> getVertexXYZ(unsigned int index) {
+            std::vector<float> getVertexXYZ(unsigned int index)
+            {
                 std::vector<float>::const_iterator start = vertices.begin() +
                                                            index;
                 std::vector<float>::const_iterator end = vertices.begin() +
@@ -317,23 +318,48 @@ namespace Slic3r {
 
             float interpolateDensity(std::vector<float> point)
             {
-                unsigned int bounding_triangle = -1;
+                if (point.size() != 3) { throw "Vector not 3 dimensional"; }
+
+                unsigned int bounding_triangle = MAXUINT;
+
                 for (unsigned int i = 0; i < triangles.size(); i+=3) {
                     bool condition = false;
                     
+                    std::vector<float> vertex_one = getVertexXYZ(triangles[i]);
+                    std::vector<float> vertex_two = getVertexXYZ(triangles[i + 1]);
+                    std::vector<float> vertex_three = getVertexXYZ(triangles[i + 2]);
+
+                    // This currently computes a 2-dimensional bound. Need an extra point for 3-dimensional bound
+                    // possibly do in the future if we change the mesh.
+
+                    // Computing the barycentric coordinates. This can (and probably must) be extended to a fourth point. Refer to wikipedia
+                    float determinantT = (vertex_two[1] - vertex_three[1]) * (vertex_one[0] - vertex_three[0]) + (vertex_three[0] - vertex_two[0]) * (vertex_one[1] - vertex_three[1]);
+                    float l1           = 0.0;
+                    float l2           = 0.0;
+
+                    if (determinantT > 0) {
+                        l1 = ((vertex_two[1] - vertex_three[1]) * (point[0] - vertex_three[0]) + (vertex_three[0] - vertex_two[0]) * (point[1] - vertex_three[1])) / determinantT;
+                        l2 = ((vertex_three[1] - vertex_one[1]) * (point[0] - vertex_three[0]) + (vertex_one[0] - vertex_three[0]) * (point[1] - vertex_three[1])) / determinantT;
+                    }
+
                     // Figure out if in triangle
-                    if (condition) {
+                    if (l1 > 0 && l2 > 0 && 1 - l1 - l2 > 0) {
                         bounding_triangle = i;
                         break;
                     }
                 }
 
-                if (bounding_triangle < 0) { return 0.0; }
+                if (bounding_triangle == MAXUINT) { return 0.0; }
                 return interpolateDensityFromTriangle(0, point);
             }
 
             float interpolateDensityFromTriangle(unsigned int triangle, std::vector<float> point)
             {
+                if (point.size() != 3) { throw "Vector not 3 dimensional"; }
+                if (triangle >= triangles.size()) {
+                    throw "Triangle out of range";
+                }
+
                 unsigned int vertex_one_index = triangles[triangle++];
                 unsigned int vertex_two_index = triangles[triangle++];
                 unsigned int vertex_three_index = triangles[triangle];
@@ -1494,8 +1520,7 @@ namespace Slic3r {
 
     bool _3MF_Importer::_handle_end_object()
     {
-        m_curr_object.geometry.interpolateDensity(
-            std::vector<float>());
+        m_curr_object.geometry.interpolateDensity(std::vector<float>({27.5, 35.0, 10.0}));
         if (m_curr_object.object != nullptr)
         {
             if (m_curr_object.geometry.empty())
