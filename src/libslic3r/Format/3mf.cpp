@@ -306,15 +306,47 @@ namespace Slic3r {
                 custom_seam.clear();
             }
 
-            float interpolateDensity(std::vector<unsigned int> point)
+            std::vector<float> getVertexXYZ(unsigned int index) {
+                std::vector<float>::const_iterator start = vertices.begin() +
+                                                           index;
+                std::vector<float>::const_iterator end = vertices.begin() +
+                                                         index + 3;
+
+                return std::vector<float>(start, end);
+            }
+
+            float interpolateDensity(std::vector<float> point)
             {
+                unsigned int bounding_triangle = -1;
+                for (unsigned int i = 0; i < triangles.size(); i+=3) {
+                    bool condition = false;
+                    
+                    // Figure out if in triangle
+                    if (condition) {
+                        bounding_triangle = i;
+                        break;
+                    }
+                }
+
+                if (bounding_triangle < 0) { return 0.0; }
                 return interpolateDensityFromTriangle(0, point);
             }
 
-            float interpolateDensityFromTriangle(unsigned int triangle, std::vector<unsigned int> point)
+            float interpolateDensityFromTriangle(unsigned int triangle, std::vector<float> point)
             {
+                unsigned int vertex_one_index = triangles[triangle++];
+                unsigned int vertex_two_index = triangles[triangle++];
+                unsigned int vertex_three_index = triangles[triangle];
+
+                std::vector<float> vertex_one = getVertexXYZ(vertex_one_index);
+                std::vector<float> vertex_two = getVertexXYZ(vertex_two_index);
+                std::vector<float> vertex_three = getVertexXYZ(
+                    vertex_three_index);
+
+                // TODO: Compute everything here.
+
                 // Compute the density of the point based of the density of the vertices
-                return 0.0;
+                return density[0];
             }
         };
 
@@ -1462,6 +1494,8 @@ namespace Slic3r {
 
     bool _3MF_Importer::_handle_end_object()
     {
+        m_curr_object.geometry.interpolateDensity(
+            std::vector<float>());
         if (m_curr_object.object != nullptr)
         {
             if (m_curr_object.geometry.empty())
