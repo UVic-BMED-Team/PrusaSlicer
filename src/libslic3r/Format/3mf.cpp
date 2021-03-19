@@ -320,7 +320,7 @@ namespace Slic3r {
             {
                 if (point.size() != 3) { throw "Vector not 3 dimensional"; }
 
-                unsigned int bounding_triangle = MAXUINT;
+                unsigned int bounding_triangle = UINT_MAX;
 
                 for (unsigned int i = 0; i < triangles.size(); i+=3) {
                     bool condition = false;
@@ -349,7 +349,7 @@ namespace Slic3r {
                     }
                 }
 
-                if (bounding_triangle == MAXUINT) { return 0.0; }
+                if (bounding_triangle == UINT_MAX) { return 0.0; }
                 return interpolateDensityFromTriangle(0, point);
             }
 
